@@ -213,12 +213,20 @@ export class GameRoot extends Component {
 
   /** 封面在 boot() 之前就会显示 UI，需要确保相机渲染 UI_2D。 */
   private ensureCameraSeesUi() {
-    const host = this.getCoverHostNode();
-    const cam = host.getChildByName('Camera')?.getComponent(Camera);
-    if (cam) {
-      cam.visibility = cam.visibility | Layers.Enum.UI_2D;
-      cam.clearColor = DESKTOP_EDGE;
-    }
+    const scene = director.getScene();
+    if (!scene) return;
+
+    // Robust for web build: camera node names/hierarchy may differ from editor assumptions.
+    // Ensure every camera in the active scene can render UI_2D.
+    const walk = (n: Node) => {
+      const cam = n.getComponent(Camera);
+      if (cam) {
+        cam.visibility = cam.visibility | Layers.Enum.UI_2D;
+        cam.clearColor = DESKTOP_EDGE;
+      }
+      for (const c of n.children) walk(c);
+    };
+    walk(scene);
   }
 
   /**
