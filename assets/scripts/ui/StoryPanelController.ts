@@ -49,7 +49,9 @@ export class StoryPanelController {
   private typingRunId = 0;
 
   /** 逐字显示速度（毫秒/字） */
-  private readonly typeMsPerChar = 48;
+  private readonly typeMsPerChar = 92;
+  /** 段落开始前的停顿，避免开场“闪现” */
+  private readonly typeLeadInMs = 220;
 
   constructor(root: Node) {
     this.root = root;
@@ -109,8 +111,9 @@ export class StoryPanelController {
         );
         return;
       }
-      this.storyRich.font = font;
-      this.storyRich.useSystemFont = false;
+      // Story body keeps system font for CJK coverage stability on web builds.
+      // Pixel font can miss some glyphs (e.g. "刀") in browser runtime.
+      this.storyRich.useSystemFont = true;
       this.footerLabel.font = font;
       this.footerLabel.useSystemFont = false;
       this.footerLabel.cacheMode = Label.CacheMode.BITMAP;
@@ -185,6 +188,7 @@ export class StoryPanelController {
   }
 
   private async consumeTypingQueue(runId: number) {
+    await this.sleep(this.typeLeadInMs);
     while (this.typingQueue.length > 0) {
       if (runId !== this.typingRunId) return;
       const item = this.typingQueue.shift();
@@ -195,7 +199,7 @@ export class StoryPanelController {
       for (const ch of item.chars) {
         if (runId !== this.typingRunId) return;
         this.storyRich.string += ch;
-        await this.sleep(this.typeMsPerChar);
+        await this.sleep(this.typeMsPerChar + this.extraPauseMs(ch));
       }
     }
     this.typingLoopRunning = false;
@@ -203,6 +207,14 @@ export class StoryPanelController {
 
   private sleep(ms: number) {
     return new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, ms)));
+  }
+
+  private extraPauseMs(coloredCharBbcode: string): number {
+    // Match by plain punctuation content in wrapped richtext chunks.
+    if (coloredCharBbcode.includes('，') || coloredCharBbcode.includes('。')) return 90;
+    if (coloredCharBbcode.includes('？') || coloredCharBbcode.includes('！')) return 130;
+    if (coloredCharBbcode.includes('\n')) return 160;
+    return 0;
   }
 
   private ruleMatches(r: StoryRule, ev: GameEvent): boolean {

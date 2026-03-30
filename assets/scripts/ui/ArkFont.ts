@@ -7,6 +7,14 @@ import { resources, TTFFont } from 'cc';
 export const ARK_FONT_RESOURCES_PATHS = ['fonts/ArkPixel112-zh_cn', 'fonts/ArkPixel12-zh_cn'];
 
 export function loadArkPixelFont(onDone: (font: TTFFont | null) => void) {
+  // GitHub Pages/web builds in this project may not emit TTFFont native payloads,
+  // which causes noisy 404s on `assets/resources/native/**/*.ttf`.
+  // Fallback to system font on web runtime for stability and full CJK coverage.
+  if (typeof window !== 'undefined') {
+    onDone(null);
+    return;
+  }
+
   const tryPath = (index: number) => {
     if (index >= ARK_FONT_RESOURCES_PATHS.length) {
       onDone(null);
